@@ -1,0 +1,5 @@
+credentials
+.cabal-sandbox
+cabal.sandbox.config
+dist
+dl
