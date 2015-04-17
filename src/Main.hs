@@ -1,7 +1,8 @@
 import Network.HTTP.Client.Utils
 import System.Environment
-import Data.Maybe
 import Control.Monad
+import Control.Concurrent.ParallelIO
+import qualified Data.Set as S
 
 import HB.Utils
 import HB.Types
@@ -27,14 +28,17 @@ main = do
     -- fetch all bundles data and extract download information
     putStrLn "Fetching keys..."
     bundles <- map fromRight . filter isRight <$>
-      mapM (fetch m (responseCookieJar res)) keys
-    let dls = extractDLs platform bundles
+      (parallelInterleaved . map (fetch m (responseCookieJar res))) keys
+    let dls = uniq $ extractDLs platform bundles
 
     -- execute downloads
     putStrLn "Downloads on it's way!"
-    forM_ dls (executeDownload m path)
-    -- forM_ (sort . filter (isJust . fsize) $ dls) (executeDownload m path)
+    parallelInterleaved . map (executeDownload m path) $ dls
 
+    stopGlobalPool
+
+uniq :: Ord a => [a] -> [a]
+uniq = S.toList . S.fromList
 
 -- Logout is GET to
 -- https://www.humblebundle.com/logout?goto=/

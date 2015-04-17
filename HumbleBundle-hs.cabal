@@ -19,11 +19,12 @@ executable HumbleBundle-hs
   main-is:             Main.hs
   -- other-modules:
   -- other-extensions:
-  ghc-options:       -W
+  ghc-options:       -W -threaded -rtsopts -O2
   build-depends:       aeson
                      , base >=4.8 && <4.9
                      , base16-bytestring
                      , bytestring
+                     , containers
                      , cryptohash
                      , directory
                      , filepath
@@ -31,6 +32,7 @@ executable HumbleBundle-hs
                      , http-client-tls
                      , http-types
                      , lens
+                     , parallel-io
                      , pipes
                      , pipes-bytestring
                      , pipes-http

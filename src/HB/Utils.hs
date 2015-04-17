@@ -3,7 +3,6 @@
 module HB.Utils where
 
 import Data.List
-import Data.Maybe
 import System.IO
 import Network.HTTP.Client.Utils
 import qualified Data.ByteString as B
@@ -114,4 +113,37 @@ fileHash fname = do
       hashInit hashFinalize (PB.fromHandle h)
 
 fromRight (Right a) = a
-fromRight _ = error "Not right"
+fromRight _ = error "Not Right"
+
+isRight (Right _) = True
+isRight _ = False
+
+isJust (Just _) = True
+isJust _ = False
+
+fromJust (Just a) = a
+fromJust _ = error "Not Just"
+
+extractDLs :: Platform' -> [Bundle] -> [DL]
+extractDLs p bundles = do
+  bundle <- bundles
+  sp <- subproducts bundle
+  dl <- sp_downloads sp
+  guard $ filterPlatform p dl
+  ds <- dl_download_struct dl
+  let u = dsu_web (ds_url ds)
+      dlt = ds_type ds
+  guard $ isJust u
+  guard $ (not (isJust dlt) || (dlt == Just DLTDownload))
+  return $ DL (sp_human_name sp)
+              (dl_machine_name dl)
+              (dl_platform dl)
+              dlt
+              (fromJust u)
+              (ds_human_size ds)
+              (ds_file_size ds)
+              (ds_sha1 ds)
+              (ds_md5 ds)
+  where
+    filterPlatform p dl = p == All || Platform' (dl_platform dl) == p
+

@@ -1,14 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module HB.Types where
 
-import           Control.Monad
 import           Data.Aeson
 import           Data.Aeson.Types (parse)
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.Vector as V
 import           Crypto.Hash
 import           Data.Text.Encoding (encodeUtf8)
-import           Data.Maybe
 import qualified Data.Text as T
 
 isSuccess :: Result a -> Bool
@@ -51,8 +49,18 @@ instance (HashAlgorithm a) => FromJSON (Digest a) where
       Just h -> return h
   parseJSON a = fail ((show a) ++ " is not a digest String")
 
+data DLType = DLTDownload | DLTPatch | DLTIntelOnly
+  deriving (Show, Eq)
+instance FromJSON DLType where
+  parseJSON (String s) = case s of
+                           "Download"   -> return DLTDownload
+                           "Intel Only" -> return DLTIntelOnly
+                           "Patch"      -> return DLTPatch
+                           _            -> fail $ "Unknown DLType: " ++ T.unpack s
+  parseJSON a = fail ((show a) ++ " is not a String")
+
 data DownloadStruct = DownloadStruct {
-    ds_name       :: Maybe String
+    ds_type       :: Maybe DLType -- called "name" in JSON
   , ds_file_size  :: Maybe Int
   , ds_timestamp  :: Maybe Int
   , ds_human_size :: Maybe String
@@ -123,6 +131,7 @@ instance FromJSON Bundle where
 data DL = DL { hname :: String
              , mname :: String
              , platform :: Platform
+             , dltype :: Maybe DLType
              , url :: String
              , hsize :: Maybe String
              , fsize :: Maybe Int
@@ -132,32 +141,9 @@ data DL = DL { hname :: String
 instance Ord DL where
   dl1 `compare` dl2 = (fsize dl1) `compare` (fsize dl2)
 
-extractDLs :: Platform' -> [Bundle] -> [DL]
-extractDLs p bundles = do
-  bundle <- bundles
-  sp <- subproducts bundle
-  dl <- sp_downloads sp
-  guard $ filterPlatform p dl
-  ds <- dl_download_struct dl
-  let u = dsu_web (ds_url ds)
-  guard $ isJust u
-  return $ DL (sp_human_name sp)
-              (dl_machine_name dl)
-              (dl_platform dl)
-              (fromJust u)
-              (ds_human_size ds)
-              (ds_file_size ds)
-              (ds_sha1 ds)
-              (ds_md5 ds)
-  where
-    filterPlatform p dl = p == All || Platform' (dl_platform dl) == p
-
 data Platform' = Platform' Platform | All
   deriving (Show, Eq)
 
 strToPlatform' s = case s of
                      "All" -> All
                      a -> Platform' (read a)
-
-isRight (Right _) = True
-isRight _ = False
