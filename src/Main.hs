@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
 import Network.HTTP.Client.Utils
 import System.Environment
 import Data.Maybe
