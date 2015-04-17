@@ -1,23 +1,23 @@
 {-# LANGUAGE OverloadedStrings #-}
 module HB.Types where
 
-import Data.Aeson
-import Data.Aeson.Types (parse)
-import Control.Monad
+import           Control.Monad
+import           Data.Aeson
+import           Data.Aeson.Types (parse)
+import qualified Data.ByteString.Base16 as B16
 import qualified Data.Vector as V
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
-
+import           Crypto.Hash
+import           Data.Text.Encoding (encodeUtf8)
+import           Data.Maybe
 import qualified Data.Text as T
 
-import qualified Debug.Trace as D
-
 isSuccess :: Result a -> Bool
-isSuccess (Success a) = True
+isSuccess (Success _) = True
 isSuccess _ = False
 
 fromSuccess :: Result a -> a
 fromSuccess (Success a) = a
+fromSuccess _ = error "Not success"
 
 data Platform = Windows | Mac | Linux | Android | Audio | Ebook | Asmjs
      deriving (Show, Read, Eq)
@@ -30,6 +30,7 @@ instance FromJSON Platform where
                            "audio"   -> return Audio
                            "ebook"   -> return Ebook
                            "asmjs"   -> return Asmjs
+                           a -> fail $ "Don't know that platform: " ++ T.unpack a
   parseJSON a = fail ((show a) ++ " is not a String")
 
 data DSUrl = DSUrl {
@@ -43,13 +44,20 @@ instance FromJSON DSUrl where
           <*> v .:? "bittorrent"
   parseJSON a = fail ((show a) ++ " is not an Object")
 
+instance (HashAlgorithm a) => FromJSON (Digest a) where
+  parseJSON (String s) =
+    case digestFromByteString . fst . B16.decode . encodeUtf8 $ s of
+      Nothing -> fail "Invalid hash"
+      Just h -> return h
+  parseJSON a = fail ((show a) ++ " is not a digest String")
+
 data DownloadStruct = DownloadStruct {
-    ds_name       :: Maybe String -- "Download" or "Patch"
+    ds_name       :: Maybe String
   , ds_file_size  :: Maybe Int
   , ds_timestamp  :: Maybe Int
   , ds_human_size :: Maybe String
-  , ds_sha1       :: Maybe String
-  , ds_md5        :: Maybe String
+  , ds_sha1       :: Maybe (Digest SHA1)
+  , ds_md5        :: Maybe (Digest MD5)
   , ds_url        :: DSUrl
   } deriving Show
 -- makeLenses ''DownloadStruct
@@ -83,6 +91,8 @@ instance FromJSON Download where
         Download <$> v .: "platform"
                  <*> v .: "machine_name"
                  <*> return parsed
+      _ -> fail "Expected download_struct to be an array"
+  parseJSON a = fail ((show a) ++ " is not an Object")
 
 data Subproduct = Subproduct {
     sp_machine_name :: String
@@ -109,3 +119,45 @@ instance FromJSON Bundle where
   parseJSON (Object v) =
     Bundle <$> v .: "subproducts"
   parseJSON a = fail ((show a) ++ " is not an Object")
+
+data DL = DL { hname :: String
+             , mname :: String
+             , platform :: Platform
+             , url :: String
+             , hsize :: Maybe String
+             , fsize :: Maybe Int
+             , sha1 :: Maybe (Digest SHA1)
+             , md5 :: Maybe (Digest MD5)
+             } deriving (Show, Eq)
+instance Ord DL where
+  dl1 `compare` dl2 = (fsize dl1) `compare` (fsize dl2)
+
+extractDLs :: Platform' -> [Bundle] -> [DL]
+extractDLs p bundles = do
+  bundle <- bundles
+  sp <- subproducts bundle
+  dl <- sp_downloads sp
+  guard $ filterPlatform p dl
+  ds <- dl_download_struct dl
+  let u = dsu_web (ds_url ds)
+  guard $ isJust u
+  return $ DL (sp_human_name sp)
+              (dl_machine_name dl)
+              (dl_platform dl)
+              (fromJust u)
+              (ds_human_size ds)
+              (ds_file_size ds)
+              (ds_sha1 ds)
+              (ds_md5 ds)
+  where
+    filterPlatform p dl = p == All || Platform' (dl_platform dl) == p
+
+data Platform' = Platform' Platform | All
+  deriving (Show, Eq)
+
+strToPlatform' s = case s of
+                     "All" -> All
+                     a -> Platform' (read a)
+
+isRight (Right _) = True
+isRight _ = False

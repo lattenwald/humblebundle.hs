@@ -19,10 +19,14 @@ executable HumbleBundle-hs
   main-is:             Main.hs
   -- other-modules:
   -- other-extensions:
+  ghc-options:       -W
   build-depends:       aeson
                      , base >=4.8 && <4.9
+                     , base16-bytestring
                      , bytestring
+                     , cryptohash
                      , directory
+                     , filepath
                      , http-client
                      , http-client-tls
                      , http-types

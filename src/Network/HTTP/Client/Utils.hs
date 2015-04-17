@@ -9,8 +9,6 @@ import Network.HTTP.Client.TLS
 import qualified Data.ByteString as B
 import Data.List (find)
 
-import Network.HTTP.Client
-
 click m mnext = clickWith m mnext id
 
 clickWith m mnext f res = do
