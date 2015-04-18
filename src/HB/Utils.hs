@@ -80,7 +80,8 @@ bsSearch term str = findConsecutive indices
 executeDownload :: Manager -> String -> DL -> IO ()
 executeDownload m dir dl@DL{..} = do
   req <- parseUrl url
-  let fdir  = concat [dir, "/", show platform, "/", hname]
+  let hname' = map (\c -> if c == ':' then '_' else c) hname
+      fdir  = concat [dir, "/", show platform, "/", hname']
       fname = takeFileName . B8.unpack . path $ req
       fullname = concat [fdir, "/", fname]
   createDirectoryIfMissing True fdir
