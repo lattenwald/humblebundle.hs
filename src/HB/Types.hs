@@ -9,6 +9,8 @@ import           Crypto.Hash
 import           Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text as T
 
+import qualified Debug.Trace as D
+
 isSuccess :: Result a -> Bool
 isSuccess (Success _) = True
 isSuccess _ = False
@@ -49,14 +51,14 @@ instance (HashAlgorithm a) => FromJSON (Digest a) where
       Just h -> return h
   parseJSON a = fail ((show a) ++ " is not a digest String")
 
-data DLType = DLTDownload | DLTPatch | DLTIntelOnly
+data DLType = DLTDownload | DLTTablet | DLTPatch | DLTIntelOnly
   deriving (Show, Eq)
 instance FromJSON DLType where
-  parseJSON (String s) = case s of
-                           "Download"   -> return DLTDownload
-                           "Intel Only" -> return DLTIntelOnly
-                           "Patch"      -> return DLTPatch
-                           _            -> fail $ "Unknown DLType: " ++ T.unpack s
+  parseJSON (String "Intel Only") =  return DLTIntelOnly
+  parseJSON (String "Patch") = return DLTPatch
+  parseJSON (String s) | "Download Tablet" `T.isPrefixOf` s = return DLTTablet
+  parseJSON (String "Download") = return DLTDownload
+  parseJSON (String s) = fail $ D.traceShowId $ "Unknown DLType: " ++ T.unpack s
   parseJSON a = fail ((show a) ++ " is not a String")
 
 data DownloadStruct = DownloadStruct {

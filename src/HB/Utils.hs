@@ -81,7 +81,10 @@ executeDownload :: Manager -> String -> DL -> IO ()
 executeDownload m dir dl@DL{..} = do
   req <- parseUrl url
   let hname' = map (\c -> if c == ':' then '_' else c) hname
-      fdir  = concat [dir, "/", show platform, "/", hname']
+      fdir  = concat [dir, "/", show platform, "/"
+                     , hname'
+                     , if dltype == Just DLTTablet then "/tablet" else ""
+                     ]
       fname = takeFileName . B8.unpack . path $ req
       fullname = concat [fdir, "/", fname]
   createDirectoryIfMissing True fdir
@@ -135,7 +138,7 @@ extractDLs p bundles = do
   let u = dsu_web (ds_url ds)
       dlt = ds_type ds
   guard $ isJust u
-  guard $ (not (isJust dlt) || (dlt == Just DLTDownload))
+  guard $ (not (isJust dlt) || dlt == Just DLTDownload || dlt == Just DLTTablet)
   return $ DL (sp_human_name sp)
               (dl_machine_name dl)
               (dl_platform dl)
@@ -147,4 +150,3 @@ extractDLs p bundles = do
               (ds_md5 ds)
   where
     filterPlatform p dl = p == All || Platform' (dl_platform dl) == p
-
