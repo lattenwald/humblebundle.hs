@@ -21,6 +21,7 @@ executable HumbleBundle-hs
   -- other-extensions:
   ghc-options:       -W -threaded -rtsopts -O2
   build-depends:       aeson
+                     , attoparsec
                      , base >=4.8 && <4.9
                      , base16-bytestring
                      , bytestring
@@ -32,6 +33,7 @@ executable HumbleBundle-hs
                      , http-client-tls
                      , http-types
                      , lens
+                     , lens-aeson
                      , parallel-io
                      , pipes
                      , pipes-bytestring

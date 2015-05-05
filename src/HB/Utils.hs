@@ -3,6 +3,8 @@
 module HB.Utils where
 
 import Data.List
+import Data.Aeson.Lens
+import Control.Lens
 import System.IO
 import Network.HTTP.Client.Utils
 import qualified Data.ByteString as B
@@ -13,6 +15,7 @@ import System.Directory
 import Control.Monad
 import Crypto.Hash
 import qualified Pipes.Prelude as P
+import Data.Text.Lens
 
 import Data.Aeson
 import Pipes
@@ -38,12 +41,11 @@ auth m username password = do
       . toPost )
   return res
 
-fetch :: Manager -> CookieJar -> String -> IO (Either String Bundle)
+fetch :: Manager -> CookieJar -> String -> IO BL8.ByteString
 fetch m jar key = do
   req <- parseUrl ("https://www.humblebundle.com/api/v1/order/" ++ key)
   let req' = req { cookieJar = Just jar }
-  bundle <- eitherDecode . responseBody <$> httpLbs req' m
-  return bundle
+  responseBody <$> httpLbs req' m
 
 download m url fname = do
   req <- parseUrl url
@@ -105,9 +107,9 @@ fileOK fullname DL{..} = do
   let md5_ok  = (==) <$> md5  <*> md5'
       sha1_ok = (==) <$> sha1 <*> sha1'
   when (isJust md5_ok && not (fromJust md5_ok) && isJust md5') $
-        putStrLn $ "md5: got "  ++ show md5'  ++ ", expected " ++ show md5
+        putStrLn $ bundle_name ++ ", " ++ hname ++ " (" ++ mname ++ ")" ++ " md5: got "  ++ show md5'  ++ ", expected " ++ show md5
   when (isJust sha1_ok && not (fromJust sha1_ok) && isJust sha1') $
-        putStrLn $ "sha1: got "  ++ show sha1'  ++ ", expected " ++ show sha1
+        putStrLn $ bundle_name ++ ", " ++ hname ++ " (" ++ mname ++ ")" ++ " sha1: got "  ++ show sha1'  ++ ", expected " ++ show sha1
   return $ any fromJust . filter isJust $ [md5_ok, sha1_ok]
 
 fileHash :: HashAlgorithm a => FilePath -> IO (Digest a)
@@ -128,25 +130,27 @@ isJust _ = False
 fromJust (Just a) = a
 fromJust _ = error "Not Just"
 
-extractDLs :: Platform' -> [Bundle] -> [DL]
-extractDLs p bundles = do
-  bundle <- bundles
-  sp <- subproducts bundle
-  dl <- sp_downloads sp
-  guard $ filterPlatform p dl
-  ds <- dl_download_struct dl
-  let u = dsu_web (ds_url ds)
-      dlt = ds_type ds
-  guard $ isJust u
-  guard $ (not (isJust dlt) || dlt == Just DLTDownload || dlt == Just DLTTablet)
-  return $ DL (sp_human_name sp)
-              (dl_machine_name dl)
-              (dl_platform dl)
-              dlt
-              (fromJust u)
-              (ds_human_size ds)
-              (ds_file_size ds)
-              (ds_sha1 ds)
-              (ds_md5 ds)
-  where
-    filterPlatform p dl = p == All || Platform' (dl_platform dl) == p
+parseBundle :: BL8.ByteString -> [DL]
+parseBundle str = do
+  let Just json = decode str :: Maybe Value
+  bundle_name <- json ^.. key "product" . key "human_name" . _String . from packed
+
+  sp <- json ^.. key "subproducts" . values
+  human_name <- sp ^.. key "human_name" . _String . from packed
+
+  dl <- sp ^.. key "downloads" . values
+  machine_name <- dl ^.. key "machine_name" . _String . from packed
+  platform <- dl ^.. key "platform" . _Platform
+
+  dl_struct <- dl ^.. key "download_struct" . values
+  url <- dl_struct ^.. key "url" . key "web" . _String . from packed
+  let dl_type = dl_struct ^? key "name" . _DLType
+      human_size = dl_struct ^? key "human_size" . _String . from packed
+      file_size = dl_struct ^? key "file_size" . _Integral
+      sha1 = dl_struct ^? key "sha1" . _Digest
+      md5 = dl_struct ^? key "md5" . _Digest
+
+  return $ DL human_name machine_name bundle_name platform dl_type url human_size file_size sha1 md5
+
+filterPlatform All = id
+filterPlatform (Platform' pl) = filter ((pl ==) . platform)

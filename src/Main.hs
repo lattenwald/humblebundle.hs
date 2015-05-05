@@ -11,7 +11,7 @@ main = do
   -- arguments
   args <- getArgs
   when (length args < 2) $ fail "WUT PLTFRM?!?? WHRE TO??!?!??"
-  let platform = strToPlatform' . head $ args
+  let pl = strToPlatform' . head $ args
       path = args !! 1
 
   -- credentials
@@ -27,9 +27,8 @@ main = do
 
     -- fetch all bundles data and extract download information
     putStrLn "Fetching keys..."
-    bundles <- map fromRight . filter isRight <$>
-      (parallelInterleaved . map (fetch m (responseCookieJar res))) keys
-    let dls = uniq $ extractDLs platform bundles
+    bundles <- parallelInterleaved . map (fetch m (responseCookieJar res)) $ keys
+    let dls = filterPlatform pl . uniq . concat . map parseBundle $ bundles
 
     -- execute downloads
     putStrLn "Downloads on it's way!"
