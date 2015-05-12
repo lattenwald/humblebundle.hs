@@ -34,6 +34,7 @@ executable HumbleBundle-hs
                      , http-types
                      , lens
                      , lens-aeson
+                     , optparse-applicative
                      , parallel-io
                      , pipes
                      , pipes-bytestring

@@ -79,8 +79,8 @@ bsSearch term str = findConsecutive indices
                                             LT -> Nothing
 
 
-executeDownload :: Manager -> String -> DL -> IO ()
-executeDownload m dir dl@DL{..} = do
+executeDownload :: Manager -> String -> Bool -> DL -> IO ()
+executeDownload m dir verbose dl@DL{..} = do
   req <- parseUrl url
   let hname' = map (\c -> if c == ':' then '_' else c) hname
       fdir  = concat [dir, "/", show platform, "/"
@@ -90,25 +90,25 @@ executeDownload m dir dl@DL{..} = do
       fname = takeFileName . B8.unpack . path $ req
       fullname = concat [fdir, "/", fname]
   createDirectoryIfMissing True fdir
-  ok <- fileOK fullname dl
+  ok <- fileOK fullname verbose dl
   when (not ok) $ do
     putStrLn $ hname ++ if isJust hsize
                         then " (" ++ fromJust hsize ++ ")"
                         else ""
     download m url fullname
-    ok2 <- fileOK fullname dl
+    ok2 <- fileOK fullname verbose dl
     when (not ok2) $ fail $ "failed downloading file " ++ show fullname
 
-fileOK :: FilePath -> DL -> IO Bool
-fileOK fullname DL{..} = do
+fileOK :: FilePath -> Bool -> DL -> IO Bool
+fileOK fullname verbose DL{..} = do
   e <- doesFileExist fullname
   md5'  <- if e then Just <$> (fileHash fullname :: IO (Digest MD5 )) else return Nothing
   sha1' <- if e then Just <$> (fileHash fullname :: IO (Digest SHA1)) else return Nothing
   let md5_ok  = (==) <$> md5  <*> md5'
       sha1_ok = (==) <$> sha1 <*> sha1'
-  when (isJust md5_ok && not (fromJust md5_ok) && isJust md5') $
+  when (verbose && isJust md5_ok && not (fromJust md5_ok) && isJust md5') $
         putStrLn $ bundle_name ++ ", " ++ hname ++ " (" ++ mname ++ ")" ++ " md5: got "  ++ show md5'  ++ ", expected " ++ show md5
-  when (isJust sha1_ok && not (fromJust sha1_ok) && isJust sha1') $
+  when (verbose && isJust sha1_ok && not (fromJust sha1_ok) && isJust sha1') $
         putStrLn $ bundle_name ++ ", " ++ hname ++ " (" ++ mname ++ ")" ++ " sha1: got "  ++ show sha1'  ++ ", expected " ++ show sha1
   return $ any fromJust . filter isJust $ [md5_ok, sha1_ok]
 
