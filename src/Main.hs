@@ -1,8 +1,9 @@
 import Network.HTTP.Client.Utils
 import Control.Monad
 import Control.Concurrent.ParallelIO
-import qualified Data.Set as S
+import qualified Data.Map as Map
 import Options.Applicative
+import qualified Debug.Trace as D
 
 import HB.Utils
 import HB.Types
@@ -33,8 +34,12 @@ main = execParser opts >>= run
 
 run :: MainOptions -> IO ()
 run opts = do
-  let pl   = strToPlatform' $ optPlatform opts
-      path = optDestination opts
+  let pl          = strToPlatform' $ optPlatform opts
+      path        = optDestination opts
+      hashStorage = optHashStorage opts
+  putStrLn $ "Getting hashes from " ++ hashStorage ++ "..."
+  hashes <- getHashes hashStorage
+  putStrLn $ "Total " ++ show (Map.size hashes) ++ " hashes there"
 
   -- credentials
   (username, password) <- credentials
@@ -54,12 +59,12 @@ run opts = do
 
     -- execute downloads
     putStrLn "Downloads on it's way!"
-    parallelInterleaved . map (executeDownload m path (optVerbose opts)) $ dls
+    newHashes <- parallelInterleaved
+                 . map (executeDownload m hashes path (optVerbose opts)) $ dls
+
+    saveHashes (Map.fromList newHashes) hashStorage
 
     stopGlobalPool
-
-uniq :: Ord a => [a] -> [a]
-uniq = S.toList . S.fromList
 
 -- Logout is GET to
 -- https://www.humblebundle.com/logout?goto=/
