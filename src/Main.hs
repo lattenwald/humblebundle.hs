@@ -9,15 +9,18 @@ import HB.Types
 
 data MainOptions = MainOptions { optVerbose :: Bool
                                , optPlatform :: String
-                               , optDestination :: String }
+                               , optDestination :: String
+                               , optHashStorage :: FilePath }
 
 options :: Parser MainOptions
 options = MainOptions <$>
   switch (long "verbose" <> short 'v' <> help "be verbose")
   <*>
-  strOption (long "platform" <> short 'p' <> help "platform to download binaries for")
+  strOption (long "platform" <> short 'p' <> value "Android" <> help "platform to download binaries for")
   <*>
   strOption (long "destination" <> short 'd' <> help "where to download binaries")
+  <*>
+  strOption (long "hashes" <> short 'h' <> value "hashes" <> help "file with hashes")
 
 main :: IO ()
 main = execParser opts >>= run

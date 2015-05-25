@@ -10,12 +10,14 @@ import Network.HTTP.Client.Utils
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as BL8
+import qualified Data.ByteString.Base16 as B16
 import System.FilePath
 import System.Directory
 import Control.Monad
 import Crypto.Hash
 import qualified Pipes.Prelude as P
 import Data.Text.Lens
+import Data.Text.Encoding (encodeUtf8)
 
 import Data.Aeson
 import Pipes
@@ -103,14 +105,10 @@ fileOK :: FilePath -> Bool -> DL -> IO Bool
 fileOK fullname verbose DL{..} = do
   e <- doesFileExist fullname
   md5'  <- if e then Just <$> (fileHash fullname :: IO (Digest MD5 )) else return Nothing
-  sha1' <- if e then Just <$> (fileHash fullname :: IO (Digest SHA1)) else return Nothing
   let md5_ok  = (==) <$> md5  <*> md5'
-      sha1_ok = (==) <$> sha1 <*> sha1'
   when (verbose && isJust md5_ok && not (fromJust md5_ok) && isJust md5') $
         putStrLn $ bundle_name ++ ", " ++ hname ++ " (" ++ mname ++ ")" ++ " md5: got "  ++ show md5'  ++ ", expected " ++ show md5
-  when (verbose && isJust sha1_ok && not (fromJust sha1_ok) && isJust sha1') $
-        putStrLn $ bundle_name ++ ", " ++ hname ++ " (" ++ mname ++ ")" ++ " sha1: got "  ++ show sha1'  ++ ", expected " ++ show sha1
-  return $ any fromJust . filter isJust $ [md5_ok, sha1_ok]
+  return $ isJust md5_ok && fromJust md5_ok
 
 fileHash :: HashAlgorithm a => FilePath -> IO (Digest a)
 fileHash fname = do
@@ -147,10 +145,31 @@ parseBundle str = do
   let dl_type = dl_struct ^? key "name" . _DLType
       human_size = dl_struct ^? key "human_size" . _String . from packed
       file_size = dl_struct ^? key "file_size" . _Integral
-      sha1 = dl_struct ^? key "sha1" . _Digest
       md5 = dl_struct ^? key "md5" . _Digest
 
-  return $ DL human_name machine_name bundle_name platform dl_type url human_size file_size sha1 md5
+  return $ DL human_name machine_name bundle_name platform dl_type url human_size file_size md5
 
 filterPlatform All = id
 filterPlatform (Platform' pl) = filter ((pl ==) . platform)
+
+strToDigest :: HashAlgorithm a => B8.ByteString -> Maybe (Digest a)
+strToDigest = digestFromByteString . fst . B16.decode
+
+_Digest :: HashAlgorithm a => Prism' Value (Digest a)
+_Digest = prism' undefined strToDigest'
+  where
+    strToDigest' (String s) = strToDigest . encodeUtf8 $ s
+    strToDigest' _ = Nothing
+
+_Platform :: Prism' Value Platform
+_Platform = prism' undefined strToPlatform
+  where
+    strToPlatform "windows" = Just Windows
+    strToPlatform "mac"     = Just Mac
+    strToPlatform "linux"   = Just Linux
+    strToPlatform "android" = Just Android
+    strToPlatform "audio"   = Just Audio
+    strToPlatform "ebook"   = Just Ebook
+    strToPlatform "asmjs"   = Just Asmjs
+    strToPlatform _         = Nothing
+
