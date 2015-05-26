@@ -28,8 +28,6 @@ import qualified Data.Set as Set
 
 import HB.Types
 
-import qualified Debug.Trace as D
-
 credentials :: IO (B.ByteString, B.ByteString)
 credentials = do
   h <- openFile "credentials" ReadMode
@@ -85,49 +83,50 @@ bsSearch term str = findConsecutive indices
                                             LT -> Nothing
 
 
-executeDownload :: Manager -> Hashes -> String -> Bool -> DL
-                   -> IO (FilePath, Maybe (Digest MD5))
+executeDownload :: Manager -> Hashes -> DirAbsName -> Bool -> DL
+                   -> IO (FileRelName, Maybe (Digest MD5))
 executeDownload m hashes dir verbose dl@DL{..} = do
   req <- parseUrl url
-  let hname' = map (\c -> if c == ':' then '_' else c) hname
-      fdir  = concat [dir, "/", show platform, "/"
-                     , hname'
-                     , if dltype == Just DLTTablet then "/tablet" else ""
-                     ]
-      fname = takeFileName . B8.unpack . path $ req
-      fullname = concat [fdir, "/", fname]
-  createDirectoryIfMissing True fdir
-  ok <- fileOK hashes fullname verbose dl
+  let hname'   = map (\c -> if c == ':' then '_' else c) hname
+      reldir   = DirRelName $ concat [show platform, "/"
+                                     , hname'
+                                     , if dltype == Just DLTTablet then "/tablet" else ""
+                                     ]
+      filedir  = DirAbsName $ concat [unDirAbsName dir, "/", unDirRelName reldir]
+      fname    = FileBaseName $ takeFileName . B8.unpack . path $ req
+      relname  = FileRelName $ concat [unDirRelName reldir, "/", unFileBaseName fname]
+      fullname = FileAbsName $ concat [unDirAbsName dir, "/", unFileRelName relname]
+  let fok = fileOK hashes dir relname verbose dl
+  ok <- fok
   when (not ok) $ do
+    createDirectoryIfMissing True $ unDirAbsName filedir
     putStrLn $ hname ++ if isJust hsize
                         then " (" ++ fromJust hsize ++ ")"
                         else ""
-    download m url fullname
-    ok2 <- fileOK hashes fullname verbose dl
+    download m url $ unFileAbsName fullname
+    ok2 <- fok
     when (not ok2) $ fail $ "failed downloading file " ++ show fullname
-  return (fullname, md5)
+  return (relname, md5)
 
-fileOK :: Hashes -> FilePath -> Bool -> DL -> IO Bool
-fileOK hashes fullname verbose DL{..} = do
-  guard $ D.trace fullname True --debug
-  guard $ D.traceShow md5 True --debug
-  md5' <- case join (Map.lookup fullname hashes) of
-            h@(Just _) -> return $ D.traceShowId h
+fileOK :: Hashes -> DirAbsName -> FileRelName -> Bool -> DL -> IO Bool
+fileOK hashes dir relname verbose DL{..} = do
+  let fullname = FileAbsName $ concat [unDirAbsName dir, "/", unFileRelName relname]
+  md5' <- case join (Map.lookup relname hashes) of
+            h@(Just _) -> return h
             Nothing -> fileHash fullname
   let md5_ok = (==) <$> md5  <*> md5'
-  guard $ D.traceShow md5_ok True
   when (verbose && isJust md5_ok && not (fromJust md5_ok) && isJust md5') $
         putStrLn $ bundle_name ++ ", " ++ hname ++ " (" ++ mname ++ ")" ++ " md5: got "  ++ show md5'  ++ ", expected " ++ show md5
   return $ isJust md5_ok && fromJust md5_ok
 
-fileHash :: HashAlgorithm a => FilePath -> IO (Maybe (Digest a))
+fileHash :: HashAlgorithm a => FileAbsName -> IO (Maybe (Digest a))
 fileHash fname = do
-  e <- doesFileExist fname
+  e <- doesFileExist $ unFileAbsName fname
   if e
      then Just <$> fhash
      else return Nothing
   where
-    fhash = withFile fname ReadMode $ \h -> do
+    fhash = withFile (unFileAbsName fname) ReadMode $ \h -> do
               P.fold (\ctx -> hashUpdates ctx . pure)
                 hashInit hashFinalize (PB.fromHandle h)
 
@@ -189,30 +188,31 @@ _Platform = prism' undefined strToPlatform
     strToPlatform "asmjs"   = Just Asmjs
     strToPlatform _         = Nothing
 
-type Hashes = Map.Map FilePath (Maybe (Digest MD5))
-
 -- TODO to bytestring or streams
-getHashes :: FilePath -> IO Hashes
+getHashes :: FileRelName -> IO Hashes
 getHashes f =
     Map.fromList
-  . map (\(a, b) -> (a, (strToDigest . B8.pack) b))
+  . map (\(a, b) -> (FileRelName a, (strToDigest . B8.pack) b))
+  . map fromJust
+  . filter isJust
   . map (splitBy '\t')
   . lines
-  <$> readFile f
+  <$> readFile (unFileRelName f)
   where
-    splitBy c s = let Just i = c `elemIndex` s
-                  in (take i s, drop (i+1) s)
+    splitBy c s = case c `elemIndex` s of
+                    Just i  -> Just (take i s, drop (i+1) s)
+                    Nothing -> Nothing
 
 -- TODO do it with ShowS
-saveHashes :: Hashes -> FilePath -> IO ()
-saveHashes h f = B8.writeFile f (hashesToBS h)
+saveHashes :: Hashes -> FileRelName -> IO ()
+saveHashes h f = B8.writeFile (unFileRelName f) (hashesToBS h)
   where
     hashesToBS h = Map.foldlWithKey
                        (\acc key val ->
                          case val of
                            Nothing     -> acc
                            Just digest ->
-                             mconcat [ B8.pack key
+                             mconcat [ B8.pack (unFileRelName key)
                                      , B8.pack "\t"
                                      , digestToHexByteString digest
                                      , B8.pack "\n"

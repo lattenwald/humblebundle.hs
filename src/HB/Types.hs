@@ -5,6 +5,7 @@ import           Data.Aeson
 import           Control.Lens
 import           Crypto.Hash
 import qualified Data.Text as T
+import qualified Data.Map as Map
 
 data Platform = Windows | Mac | Linux | Android | Audio | Ebook | Asmjs
      deriving (Show, Read, Eq)
@@ -41,3 +42,11 @@ data Platform' = Platform' Platform | All
 strToPlatform' s = case s of
   "All" -> All
   a -> Platform' (read a)
+
+data FileBaseName = FileBaseName { unFileBaseName :: FilePath } deriving (Show, Eq, Ord)
+data FileRelName  = FileRelName  { unFileRelName  :: FilePath } deriving (Show, Eq, Ord)
+data FileAbsName  = FileAbsName  { unFileAbsName  :: FilePath } deriving (Show, Eq, Ord)
+data DirRelName   = DirRelName   { unDirRelName   :: FilePath } deriving (Show, Eq, Ord)
+data DirAbsName   = DirAbsName   { unDirAbsName   :: FilePath } deriving (Show, Eq, Ord)
+
+type Hashes = Map.Map FileRelName (Maybe (Digest MD5))

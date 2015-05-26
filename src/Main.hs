@@ -3,7 +3,6 @@ import Control.Monad
 import Control.Concurrent.ParallelIO
 import qualified Data.Map as Map
 import Options.Applicative
-import qualified Debug.Trace as D
 
 import HB.Utils
 import HB.Types
@@ -11,7 +10,7 @@ import HB.Types
 data MainOptions = MainOptions { optVerbose :: Bool
                                , optPlatform :: String
                                , optDestination :: String
-                               , optHashStorage :: FilePath }
+                               , optHashStorage :: String }
 
 options :: Parser MainOptions
 options = MainOptions <$>
@@ -35,9 +34,9 @@ main = execParser opts >>= run
 run :: MainOptions -> IO ()
 run opts = do
   let pl          = strToPlatform' $ optPlatform opts
-      path        = optDestination opts
-      hashStorage = optHashStorage opts
-  putStrLn $ "Getting hashes from " ++ hashStorage ++ "..."
+      path        = DirAbsName $ optDestination opts
+      hashStorage = FileRelName $ optHashStorage opts
+  putStrLn $ "Getting hashes from " ++ show hashStorage ++ "..."
   hashes <- getHashes hashStorage
   putStrLn $ "Total " ++ show (Map.size hashes) ++ " hashes there"
 
