@@ -100,12 +100,14 @@ executeDownload m hashes dir verbose dl@DL{..} = do
   ok <- fok
   when (not ok) $ do
     createDirectoryIfMissing True $ unDirAbsName filedir
-    putStrLn $ hname ++ if isJust hsize
-                        then " (" ++ fromJust hsize ++ ")"
-                        else ""
+    let printName = hname ++ if isJust hsize
+                             then " (" ++ fromJust hsize ++ ")"
+                             else ""
+    putStrLn $ "Downloading " ++ printName ++ "..."
     download m url $ unFileAbsName fullname
     ok2 <- fok
     when (not ok2) $ fail $ "failed downloading file " ++ show fullname
+    putStrLn $ "Done with " ++ printName
   return (relname, md5)
 
 fileOK :: Hashes -> DirAbsName -> FileRelName -> Bool -> DL -> IO Bool

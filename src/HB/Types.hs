@@ -43,10 +43,10 @@ strToPlatform' s = case s of
   "All" -> All
   a -> Platform' (read a)
 
-data FileBaseName = FileBaseName { unFileBaseName :: FilePath } deriving (Show, Eq, Ord)
-data FileRelName  = FileRelName  { unFileRelName  :: FilePath } deriving (Show, Eq, Ord)
-data FileAbsName  = FileAbsName  { unFileAbsName  :: FilePath } deriving (Show, Eq, Ord)
-data DirRelName   = DirRelName   { unDirRelName   :: FilePath } deriving (Show, Eq, Ord)
-data DirAbsName   = DirAbsName   { unDirAbsName   :: FilePath } deriving (Show, Eq, Ord)
+newtype FileBaseName = FileBaseName { unFileBaseName :: FilePath } deriving (Show, Eq, Ord)
+newtype FileRelName  = FileRelName  { unFileRelName  :: FilePath } deriving (Show, Eq, Ord)
+newtype FileAbsName  = FileAbsName  { unFileAbsName  :: FilePath } deriving (Show, Eq, Ord)
+newtype DirRelName   = DirRelName   { unDirRelName   :: FilePath } deriving (Show, Eq, Ord)
+newtype DirAbsName   = DirAbsName   { unDirAbsName   :: FilePath } deriving (Show, Eq, Ord)
 
 type Hashes = Map.Map FileRelName (Maybe (Digest MD5))
