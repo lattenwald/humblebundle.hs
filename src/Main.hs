@@ -67,13 +67,14 @@ run opts = do
     let dls = filterPlatform pl . uniq . concat . map parseBundle $ bundles
 
     -- execute downloads
-    putStrLn "Downloads on it's way!"
+    putStrLn "Downloads on it's way..."
     newHashes <- parallelInterleaved
                  . map (executeDownload m hashes path (optVerbose opts)) $ dls
 
     saveHashes (Map.fromList newHashes) hashStorage
 
     stopGlobalPool
+    putStrLn "All done!"
 
 -- Logout is GET to
 -- https://www.humblebundle.com/logout?goto=/
