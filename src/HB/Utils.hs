@@ -2,31 +2,31 @@
 {-# LANGUAGE OverloadedStrings #-}
 module HB.Utils where
 
-import Data.List
-import Data.Aeson.Lens
-import Control.Lens
-import System.IO
-import Network.HTTP.Client.Utils
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as B8
+import           Control.Lens
+import           Control.Monad
+import           Crypto.Hash
+import           Data.Aeson
+import           Data.Aeson.Lens
+import qualified Data.ByteString            as B
+import qualified Data.ByteString.Base16     as B16
+import qualified Data.ByteString.Char8      as B8
 import qualified Data.ByteString.Lazy.Char8 as BL8
-import qualified Data.ByteString.Base16 as B16
-import System.FilePath
-import System.Directory
-import Control.Monad
-import Crypto.Hash
-import qualified Pipes.Prelude as P
-import Data.Text.Lens
-import Data.Text.Encoding (encodeUtf8)
-
-import Data.Aeson
-import Pipes
-import Pipes.HTTP
-import qualified Pipes.ByteString as PB
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-
-import HB.Types
+import           Data.List
+import qualified Data.Map                   as Map
+import qualified Data.Set                   as Set
+import           Data.Text.Encoding         (encodeUtf8)
+import           Data.Text.Lens
+import           Database.HDBC
+import           Database.HDBC.Sqlite3
+import           HB.Types
+import           Network.HTTP.Client.Utils
+import           Pipes
+import qualified Pipes.ByteString           as PB
+import           Pipes.HTTP
+import qualified Pipes.Prelude              as P
+import           System.Directory
+import           System.FilePath
+import           System.IO
 
 credentials :: IO (B.ByteString, B.ByteString)
 credentials = do
@@ -190,36 +190,26 @@ _Platform = prism' undefined strToPlatform
     strToPlatform "asmjs"   = Just Asmjs
     strToPlatform _         = Nothing
 
--- TODO to bytestring or streams
 getHashes :: FileRelName -> IO Hashes
-getHashes f =
-    Map.fromList
-  . map (\(a, b) -> (FileRelName a, (strToDigest . B8.pack) b))
-  . map fromJust
-  . filter isJust
-  . map (splitBy '\t')
-  . lines
-  <$> readFile (unFileRelName f)
-  where
-    splitBy c s = case c `elemIndex` s of
-                    Just i  -> Just (take i s, drop (i+1) s)
-                    Nothing -> Nothing
+getHashes f = do
+  conn <- connectSqlite3 (unFileRelName f ++ ".db")
+  sqlStuff <- quickQuery' conn "SELECT path, md5 FROM hashes" []
+  return $ Map.fromList . map (\[sqlPath, sqlMD5] -> (fromSql sqlPath, fromSql sqlMD5)) $ sqlStuff
 
--- TODO do it with ShowS
+
 saveHashes :: Hashes -> FileRelName -> IO ()
-saveHashes h f = B8.writeFile (unFileRelName f) (hashesToBS h)
-  where
-    hashesToBS h = Map.foldlWithKey
-                       (\acc key val ->
-                         case val of
-                           Nothing     -> acc
-                           Just digest ->
-                             mconcat [ B8.pack (unFileRelName key)
-                                     , B8.pack "\t"
-                                     , digestToHexByteString digest
-                                     , B8.pack "\n"
-                                     , acc ]
-                         ) "" h
+saveHashes h f = do
+  conn <- connectSqlite3 (unFileRelName f ++ ".db")
+  let hashes = Map.foldWithKey (\key val acc ->
+                                 case val of
+                                   Nothing -> acc
+                                   Just digest -> (unFileRelName key, B8.unpack(digestToHexByteString digest)) : acc
+                               ) [] h
+  forM hashes $ \(path, md5) -> do
+    run conn "INSERT OR IGNORE INTO hashes (path, md5) VALUES (?, ?)" $ map toSql [path, md5]
+    run conn "UPDATE hashes SET md5=? WHERE path=?" $ map toSql [md5, path]
+  commit conn
+  disconnect conn
 
 uniq :: Ord a => [a] -> [a]
 uniq = Set.toList . Set.fromList

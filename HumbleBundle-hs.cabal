@@ -20,12 +20,15 @@ executable HumbleBundle-hs
   -- other-modules:
   -- other-extensions:
   ghc-options:       -W -threaded -rtsopts -O2
-  build-depends:       aeson
+  build-depends:       HDBC
+                     , HDBC-sqlite3
+                     , aeson
                      , attoparsec
                      , base >=4.8 && <4.9
                      , base16-bytestring
                      , bytestring
                      , containers
+                     , convertible
                      , cryptohash
                      , directory
                      , filepath

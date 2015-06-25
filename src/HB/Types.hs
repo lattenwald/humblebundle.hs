@@ -1,11 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
 module HB.Types where
 
-import           Data.Aeson
 import           Control.Lens
 import           Crypto.Hash
-import qualified Data.Text as T
-import qualified Data.Map as Map
+import           Data.Aeson
+import qualified Data.ByteString.Base16 as B16
+import           Data.Convertible
+import qualified Data.Map               as Map
+import qualified Data.Text              as T
+import           Data.Typeable
+import           Database.HDBC
 
 data Platform = Windows | Mac | Linux | Android | Audio | Ebook | Asmjs
      deriving (Show, Read, Eq)
@@ -50,3 +56,21 @@ newtype DirRelName   = DirRelName   { unDirRelName   :: FilePath } deriving (Sho
 newtype DirAbsName   = DirAbsName   { unDirAbsName   :: FilePath } deriving (Show, Eq, Ord)
 
 type Hashes = Map.Map FileRelName (Maybe (Digest MD5))
+
+-- SqlValue instances
+instance Convertible SqlValue FileRelName where
+  safeConvert = fmap FileRelName . safeConvert
+
+instance Convertible FileRelName SqlValue where
+  safeConvert = safeConvert . unFileRelName
+
+instance (HashAlgorithm a, Typeable a) => Convertible SqlValue (Digest a) where
+  safeConvert v = do
+    inp <- safeConvert v
+    case (digestFromByteString . fst . B16.decode) inp of
+      Nothing -> convError "Cannot convert to Digest" inp
+      Just d -> return d
+
+instance (HashAlgorithm a, Typeable a) => Convertible (Maybe (Digest a)) SqlValue where
+  safeConvert inp@Nothing  = convError "Cannot convert Nothing" inp
+  safeConvert (Just d) = safeConvert . digestToHexByteString $ d
