@@ -87,7 +87,7 @@ executeDownload :: Manager -> Hashes -> DirAbsName -> Bool -> DL
                    -> IO (FileRelName, Maybe (Digest MD5))
 executeDownload m hashes dir verbose dl@DL{..} = do
   req <- parseUrl url
-  let hname'   = map (\c -> if c == ':' then '_' else c) hname
+  let hname'   = map (\c -> if (any (c ==) (":*/<>?|" :: [Char])) then '_' else c) hname
       reldir   = DirRelName $ concat [show platform, "/"
                                      , hname'
                                      , if dltype == Just DLTTablet then "/tablet" else ""
