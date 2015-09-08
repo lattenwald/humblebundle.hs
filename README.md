@@ -5,11 +5,9 @@ I created this tool for downloading HumbleBundle games. Their native Android app
 ### Installation ###
 
 * checkout repository
-* cabal sandbox init
-* cabal install --only-dependencies
-* cabal build
+* `stack build --copy-bins`
 
-Now you have binary in *dist/build/HumbleBundle-hs/HumbleBundle-hs*
+Now you have binary `HumbleBundle-hs` somewhere in our `$PATH` (in my case it is `$HOME/.local/bin/HumbleBundle-hs`)
 
 ### Using ###
 
@@ -21,14 +19,14 @@ Then create sqlite3 database for storing md5 hashes
 
 Finally, run something like
 
-    ./dist/build/HumbleBundle-hs/HumbleBundle-hs -v -p Android -d ../cloud/HB +RTS -N8
+    HumbleBundle-hs -v -p Android -d ../cloud/HB +RTS -N8
 
 ### Options ###
 
     Usage: HumbleBundle-hs [-v|--verbose] [-p|--platform ARG] (-d|--destination ARG)
                            [-h|--hashes ARG]
       Download binaries from HumbleBundle
-    
+
     Available options:
       -h,--help                Show this help text
       -v,--verbose             be verbose
