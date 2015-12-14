@@ -35,6 +35,9 @@ credentials = do
   password <- B.hGetLine h
   return (username, password)
 
+auth :: Manager
+     -> PB.ByteString -> PB.ByteString
+     -> IO (Response BL8.ByteString)
 auth m username password = do
   res <- parseUrl "https://www.humblebundle.com"
     >>= flip httpNoBody m
@@ -213,4 +216,3 @@ saveHashes h f = do
 
 uniq :: Ord a => [a] -> [a]
 uniq = Set.toList . Set.fromList
-
