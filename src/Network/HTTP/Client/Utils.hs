@@ -29,4 +29,3 @@ insertCsrf req = req { requestBody = RequestBodyBS $ B.concat [ oldBody
     Just jar = cookieJar req
     Just csrf_cookie = find ((== "csrf_cookie") . cookie_name) . destroyCookieJar $ jar
     RequestBodyBS oldBody = requestBody req
-

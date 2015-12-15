@@ -17,7 +17,11 @@ cabal-version:       >=1.10
 
 executable HumbleBundle-hs
   main-is:             Main.hs
-  -- other-modules:
+  other-modules:       HB.Session
+                     , HB.Types
+                     , HB.Utils
+                     , HB.Wreq
+                     , Network.HTTP.Client.Utils
   -- other-extensions:
   ghc-options:       -W -threaded -rtsopts -O2
   build-depends:       HDBC
@@ -38,6 +42,7 @@ executable HumbleBundle-hs
                      , http-types
                      , lens
                      , lens-aeson
+                     , mtl
                      , optparse-applicative
                      , parallel-io
                      , pipes

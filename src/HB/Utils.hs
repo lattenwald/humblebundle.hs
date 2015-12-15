@@ -7,46 +7,24 @@ import           Control.Monad
 import           Crypto.Hash
 import           Data.Aeson
 import           Data.Aeson.Lens
-import qualified Data.ByteString            as B
-import qualified Data.ByteString.Base16     as B16
-import qualified Data.ByteString.Char8      as B8
+import qualified Data.ByteString.Base16 as B16
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as BL8
-import           Data.List
-import qualified Data.Map                   as Map
-import qualified Data.Set                   as Set
-import           Data.Text.Encoding         (encodeUtf8)
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+import           Data.Text.Encoding (encodeUtf8)
 import           Data.Text.Lens
 import           Database.HDBC
 import           Database.HDBC.Sqlite3
 import           HB.Types
 import           Network.HTTP.Client.Utils
 import           Pipes
-import qualified Pipes.ByteString           as PB
+import qualified Pipes.ByteString as PB
 import           Pipes.HTTP
-import qualified Pipes.Prelude              as P
+import qualified Pipes.Prelude as P
 import           System.Directory
 import           System.FilePath
 import           System.IO
-
-credentials :: IO (B.ByteString, B.ByteString)
-credentials = do
-  h <- openFile "credentials" ReadMode
-  username <- B.hGetLine h
-  password <- B.hGetLine h
-  return (username, password)
-
-auth :: Manager
-     -> PB.ByteString -> PB.ByteString
-     -> IO (Response BL8.ByteString)
-auth m username password = do
-  res <- parseUrl "https://www.humblebundle.com"
-    >>= flip httpNoBody m
-    >>= clickWith m (parseUrl "https://www.humblebundle.com/login/captcha") toPost
-    >>= clickWith m (parseUrl "https://www.humblebundle.com/processlogin") (
-        insertCsrf
-      . addPostFields [("username", username), ("password", password)]
-      . toPost )
-  return res
 
 fetch :: Manager -> CookieJar -> String -> IO BL8.ByteString
 fetch m jar key = do
@@ -56,41 +34,15 @@ fetch m jar key = do
 
 download m url fname = do
   req <- parseUrl url
-  withHTTP req m $ \resp -> do
+  withHTTP req m $ \resp ->
     withFile fname WriteMode $ \h ->
       runEffect $ responseBody resp >-> PB.toHandle h
-
-getKeys :: BL8.ByteString -> Maybe [String]
-getKeys body = k
-  where
-    searchString = "gamekeys = "
-    gamekeysLocation = fromIntegral . (length searchString +) <$>
-                       bsSearch searchString body
-    gamekeys = BL8.takeWhile (/= ']') . flip BL8.drop body <$> gamekeysLocation
-    k = read . (++ "]") . BL8.unpack <$> gamekeys
-
-
-bsSearch :: String -> BL8.ByteString -> Maybe Int
-bsSearch term str = findConsecutive indices
-  where
-    indices = map (map fromIntegral . flip BL8.elemIndices str) term
-    findConsecutive [] = Nothing
-    findConsecutive (xs:rest) = case sort . filter isJust . map (flip findConsecutive' rest) $ xs of
-                                     [] -> Nothing
-                                     (x:_) -> (subtract (length rest)) <$> x
-    findConsecutive' i [] = Just i
-    findConsecutive' _ ([]:_) = Nothing
-    findConsecutive' i ((x:xs):rest) = case (i+1) `compare` x of
-                                            EQ -> findConsecutive' x rest
-                                            GT -> findConsecutive' i (xs:rest)
-                                            LT -> Nothing
-
 
 executeDownload :: Manager -> Hashes -> DirAbsName -> Bool -> DL
                    -> IO (FileRelName, Maybe (Digest MD5))
 executeDownload m hashes dir verbose dl@DL{..} = do
   req <- parseUrl url
-  let hname'   = map (\c -> if (any (c ==) (":*/<>?|" :: [Char])) then '_' else c) hname
+  let hname'   = map (\c -> if c `elem` (":*/<>?|" :: String) then '_' else c) hname
       reldir   = DirRelName $ concat [show platform, "/"
                                      , hname'
                                      , if dltype == Just DLTTablet then "/tablet" else ""
@@ -101,7 +53,7 @@ executeDownload m hashes dir verbose dl@DL{..} = do
       fullname = FileAbsName $ concat [unDirAbsName dir, "/", unFileRelName relname]
   let fok = fileOK hashes dir relname verbose dl
   ok <- fok
-  when (not ok) $ do
+  unless ok $ do
     createDirectoryIfMissing True $ unDirAbsName filedir
     let printName = hname ++ if isJust hsize
                              then " (" ++ fromJust hsize ++ ")"
@@ -109,7 +61,7 @@ executeDownload m hashes dir verbose dl@DL{..} = do
     putStrLn $ "Downloading " ++ printName ++ "..."
     download m url $ unFileAbsName fullname
     ok2 <- fok
-    when (not ok2) $ fail $ "failed downloading file " ++ show fullname
+    unless ok2 $ fail $ "failed downloading file " ++ show fullname
     putStrLn $ "Done with " ++ printName
   return (relname, md5)
 
@@ -131,7 +83,7 @@ fileHash fname = do
      then Just <$> fhash
      else return Nothing
   where
-    fhash = withFile (unFileAbsName fname) ReadMode $ \h -> do
+    fhash = withFile (unFileAbsName fname) ReadMode $ \h ->
               P.fold (\ctx -> hashUpdates ctx . pure)
                 hashInit hashFinalize (PB.fromHandle h)
 
@@ -208,7 +160,7 @@ saveHashes h f = do
                                    Nothing -> acc
                                    Just digest -> (unFileRelName key, B8.unpack(digestToHexByteString digest)) : acc
                                ) [] h
-  forM hashes $ \(path, md5) -> do
+  forM_ hashes $ \(path, md5) -> do
     run conn "INSERT OR IGNORE INTO hashes (path, md5) VALUES (?, ?)" $ map toSql [path, md5]
     run conn "UPDATE hashes SET md5=? WHERE path=?" $ map toSql [md5, path]
   commit conn

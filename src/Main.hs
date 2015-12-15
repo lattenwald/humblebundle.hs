@@ -1,11 +1,16 @@
-import Network.HTTP.Client.Utils
-import Control.Monad
-import Control.Concurrent.ParallelIO
+import           Control.Concurrent.ParallelIO
+import           Control.Exception
+import           Control.Lens
 import qualified Data.Map as Map
-import Options.Applicative
+import           Network.HTTP.Client (newManager)
+import           Network.HTTP.Client.TLS (tlsManagerSettings)
+import           Network.Wreq hiding (options, header)
+import           Options.Applicative
 
-import HB.Utils
-import HB.Types
+import           HB.Session
+import           HB.Types
+import           HB.Utils
+import           HB.Wreq
 
 data MainOptions = MainOptions { optVerbose :: Bool
                                , optPlatform :: String
@@ -51,31 +56,30 @@ run opts = do
   putStrLn $ "Total " ++ show (Map.size hashes) ++ " hashes there"
 
   -- credentials
-  (username, password) <- credentials
+  (cookies, keys) <- handle hbCatch . withSession' $ \sess -> do
+    resp <- hbInit sess >>=
+            hbAuth sess
+    let cookies = resp ^. responseCookieJar
+    saveCookies cookies
+    keys <- hbKeys sess
+    pure (cookies, keys)
 
-  withManager tlsManagerSettings $ \m -> do
-    -- authenticate and get /home to extract gamekeys
-    putStrLn "Authenticating..."
-    res <- auth m username password >>= click m (parseUrl "https://www.humblebundle.com/home")
-    let keys' = getKeys (responseBody res)
-    when (not . isJust $ keys') $ error "Couldn't find gamekeys"
-    let Just keys = keys'
+  m <- newManager tlsManagerSettings
 
-    -- fetch all bundles data and extract download information
-    putStrLn "Fetching keys..."
-    bundles <- parallelInterleaved . map (fetch m (responseCookieJar res)) $ keys
-    let dls = filterPlatform pl . uniq . concat . map parseBundle $ bundles
+  -- fetch all bundles data and extract download information
+  putStrLn "Fetching keys..."
+  bundles <- parallelInterleaved . map (fetch m cookies) $ keys
+  let dls = filterPlatform pl . uniq . concatMap parseBundle $ bundles
 
-    -- execute downloads
-    putStrLn "Downloads on it's way..."
-    newHashes <- parallelInterleaved
-                 . map (executeDownload m hashes path (optVerbose opts)) $ dls
+  -- execute downloads
+  putStrLn "Downloads on it's way..."
+  newHashes <- parallelInterleaved
+               . map (executeDownload m hashes path (optVerbose opts)) $ dls
 
-    saveHashes (Map.fromList newHashes) hashStorage
+  saveHashes (Map.fromList newHashes) hashStorage
 
-    stopGlobalPool
-    putStrLn "All done!"
+  stopGlobalPool
+  putStrLn "All done!"
 
 -- Logout is GET to
 -- https://www.humblebundle.com/logout?goto=/
-

@@ -1,5 +1,8 @@
-credentials
-.cabal-sandbox
-cabal.sandbox.config
-dist
-dl
+/credentials
+/cookies
+/.cabal-sandbox
+/.stack-work
+/cabal.sandbox.config
+/dist
+/dl
+/hashes.db
