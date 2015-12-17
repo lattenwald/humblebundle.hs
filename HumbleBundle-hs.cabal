@@ -31,10 +31,12 @@ executable HumbleBundle-hs
                      , base >=4.8 && <4.9
                      , base16-bytestring
                      , binary
+                     , byteable
                      , bytestring
                      , containers
                      , convertible
                      , cryptohash
+                     , derive
                      , directory
                      , filepath
                      , http-client

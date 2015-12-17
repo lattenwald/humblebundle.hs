@@ -1,17 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 module HB.Types where
 
 import           Control.Lens
 import           Crypto.Hash
 import           Data.Aeson
-import qualified Data.ByteString.Base16 as B16
-import           Data.Convertible
-import qualified Data.Map               as Map
-import qualified Data.Text              as T
-import           Data.Typeable
-import           Database.HDBC
+import           Data.Binary
+import           Data.Byteable
+import           Data.DeriveTH
+import qualified Data.Map as Map
+import qualified Data.Text as T
 
 data Platform = Windows | Mac | Linux | Android | Audio | Ebook | Asmjs
      deriving (Show, Read, Eq)
@@ -49,28 +49,26 @@ strToPlatform' s = case s of
   "All" -> All
   a -> Platform' (read a)
 
-newtype FileBaseName = FileBaseName { unFileBaseName :: FilePath } deriving (Show, Eq, Ord)
-newtype FileRelName  = FileRelName  { unFileRelName  :: FilePath } deriving (Show, Eq, Ord)
-newtype FileAbsName  = FileAbsName  { unFileAbsName  :: FilePath } deriving (Show, Eq, Ord)
-newtype DirRelName   = DirRelName   { unDirRelName   :: FilePath } deriving (Show, Eq, Ord)
-newtype DirAbsName   = DirAbsName   { unDirAbsName   :: FilePath } deriving (Show, Eq, Ord)
+newtype FileBaseName = FileBaseName { unFileBaseName :: FilePath }
+  deriving (Show, Eq, Ord)
+newtype FileRelName  = FileRelName  { unFileRelName  :: FilePath }
+  deriving (Show, Eq, Ord)
+newtype FileAbsName  = FileAbsName  { unFileAbsName  :: FilePath }
+  deriving (Show, Eq, Ord)
+newtype DirRelName   = DirRelName   { unDirRelName   :: FilePath }
+  deriving (Show, Eq, Ord)
+newtype DirAbsName   = DirAbsName   { unDirAbsName   :: FilePath }
+  deriving (Show, Eq, Ord)
 
-type Hashes = Map.Map FileRelName (Maybe (Digest MD5))
+-- type Hashes = Map.Map FileRelName (Maybe (Digest MD5))
+newtype Hashes = Hashes { getHashes:: Map.Map FileRelName (Maybe (Digest MD5)) }
+  deriving (Show, Eq)
 
--- SqlValue instances
-instance Convertible SqlValue FileRelName where
-  safeConvert = fmap FileRelName . safeConvert
+type DigestMD5 = Digest MD5
 
-instance Convertible FileRelName SqlValue where
-  safeConvert = safeConvert . unFileRelName
+instance Binary (Digest MD5) where
+  put = put . toBytes
+  get = maybe (fail "cannot decode to bytestring") pure . digestFromByteString =<< get
 
-instance (HashAlgorithm a, Typeable a) => Convertible SqlValue (Digest a) where
-  safeConvert v = do
-    inp <- safeConvert v
-    case (digestFromByteString . fst . B16.decode) inp of
-      Nothing -> convError "Cannot convert to Digest" inp
-      Just d -> return d
-
-instance (HashAlgorithm a, Typeable a) => Convertible (Maybe (Digest a)) SqlValue where
-  safeConvert inp@Nothing  = convError "Cannot convert Nothing" inp
-  safeConvert (Just d) = safeConvert . digestToHexByteString $ d
+$( derive makeBinary ''FileRelName )
+$( derive makeBinary ''Hashes )

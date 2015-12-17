@@ -52,8 +52,8 @@ run opts = do
       path        = DirAbsName $ optDestination opts
       hashStorage = FileRelName $ optHashStorage opts
   putStrLn $ "Getting hashes from " ++ show hashStorage ++ "..."
-  hashes <- getHashes hashStorage
-  putStrLn $ "Total " ++ show (Map.size hashes) ++ " hashes there"
+  hashes <- loadHashes hashStorage
+  putStrLn $ "Total " ++ show (Map.size . getHashes $ hashes) ++ " hashes there"
 
   -- credentials
   (cookies, keys) <- handle hbCatch . withSession' $ \sess -> do
@@ -76,7 +76,7 @@ run opts = do
   newHashes <- parallelInterleaved
                . map (executeDownload m hashes path (optVerbose opts)) $ dls
 
-  saveHashes (Map.fromList newHashes) hashStorage
+  saveHashes (Hashes $ Map.fromList newHashes) hashStorage
 
   stopGlobalPool
   putStrLn "All done!"

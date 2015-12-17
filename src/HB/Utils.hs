@@ -7,6 +7,7 @@ import           Control.Monad
 import           Crypto.Hash
 import           Data.Aeson
 import           Data.Aeson.Lens
+import qualified Data.Binary as Bin
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as BL8
@@ -14,8 +15,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Data.Text.Encoding (encodeUtf8)
 import           Data.Text.Lens
-import           Database.HDBC
-import           Database.HDBC.Sqlite3
 import           HB.Types
 import           Network.HTTP.Client.Utils
 import           Pipes
@@ -68,7 +67,7 @@ executeDownload m hashes dir verbose dl@DL{..} = do
 fileOK :: Hashes -> DirAbsName -> FileRelName -> Bool -> DL -> IO Bool
 fileOK hashes dir relname verbose DL{..} = do
   let fullname = FileAbsName $ concat [unDirAbsName dir, "/", unFileRelName relname]
-  md5' <- case join (Map.lookup relname hashes) of
+  md5' <- case join (Map.lookup relname . getHashes $ hashes) of
             h@(Just _) -> return h
             Nothing -> fileHash fullname
   let md5_ok = (==) <$> md5  <*> md5'
@@ -145,26 +144,11 @@ _Platform = prism' undefined strToPlatform
     strToPlatform "asmjs"   = Just Asmjs
     strToPlatform _         = Nothing
 
-getHashes :: FileRelName -> IO Hashes
-getHashes f = do
-  conn <- connectSqlite3 (unFileRelName f ++ ".db")
-  sqlStuff <- quickQuery' conn "SELECT path, md5 FROM hashes" []
-  return $ Map.fromList . map (\[sqlPath, sqlMD5] -> (fromSql sqlPath, fromSql sqlMD5)) $ sqlStuff
-
-
 saveHashes :: Hashes -> FileRelName -> IO ()
-saveHashes h f = do
-  conn <- connectSqlite3 (unFileRelName f ++ ".db")
-  let hashes = Map.foldWithKey (\key val acc ->
-                                 case val of
-                                   Nothing -> acc
-                                   Just digest -> (unFileRelName key, B8.unpack(digestToHexByteString digest)) : acc
-                               ) [] h
-  forM_ hashes $ \(path, md5) -> do
-    run conn "INSERT OR IGNORE INTO hashes (path, md5) VALUES (?, ?)" $ map toSql [path, md5]
-    run conn "UPDATE hashes SET md5=? WHERE path=?" $ map toSql [md5, path]
-  commit conn
-  disconnect conn
+saveHashes h f = BL8.writeFile (unFileRelName f ++ ".bin") . Bin.encode $ h
+
+loadHashes :: FileRelName -> IO Hashes
+loadHashes f = BL8.readFile (unFileRelName f ++ ".bin") >>= return . Bin.decode
 
 uniq :: Ord a => [a] -> [a]
 uniq = Set.toList . Set.fromList
