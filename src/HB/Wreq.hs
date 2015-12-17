@@ -33,10 +33,13 @@ type Resp = Response BL8.ByteString
 isInfixOf substr str = substr `B8.isInfixOf` (B.concat . BL8.toChunks $ str)
 
 hbInit :: Session -> IO Resp
-hbInit sess = get sess "https://www.humblebundle.com/home"
+hbInit sess = do
+  putStrLn "Initializing connection..."
+  get sess "https://www.humblebundle.com/home"
 
 hbAuth :: Session -> Resp -> IO Resp
-hbAuth sess resp =
+hbAuth sess resp = do
+  putStrLn "Authenticating..."
   if "class='account-login'" `isInfixOf` (resp ^. responseBody)
      then do
        r <- post sess "https://www.humblebundle.com/login/captcha" ([] :: [FormParam])

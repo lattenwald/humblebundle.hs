@@ -6,6 +6,7 @@ import           Network.HTTP.Client (newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.Wreq hiding (options, header)
 import           Options.Applicative
+import           System.IO
 
 import           HB.Session
 import           HB.Types
@@ -38,7 +39,9 @@ options = MainOptions <$>
              <> help "file with hashes" )
 
 main :: IO ()
-main = execParser opts >>= run
+main = do
+  hSetBuffering stdout NoBuffering
+  execParser opts >>= runHB
   where
     opts = info (helper <*> options)
         (  fullDesc
@@ -46,8 +49,8 @@ main = execParser opts >>= run
         <> header   "HumbleBundle downloader"
         )
 
-run :: MainOptions -> IO ()
-run opts = do
+runHB :: MainOptions -> IO ()
+runHB opts = do
   let pl          = strToPlatform' $ optPlatform opts
       path        = DirAbsName $ optDestination opts
       hashStorage = FileRelName $ optHashStorage opts

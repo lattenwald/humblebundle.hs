@@ -15,6 +15,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Data.Text.Encoding (encodeUtf8)
 import           Data.Text.Lens
+import           HB.Derive ()
 import           HB.Types
 import           Network.HTTP.Client.Utils
 import           Pipes

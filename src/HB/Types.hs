@@ -1,15 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TemplateHaskell #-}
 module HB.Types where
 
 import           Control.Lens
 import           Crypto.Hash
 import           Data.Aeson
-import           Data.Binary
-import           Data.Byteable
-import           Data.DeriveTH
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
@@ -63,12 +59,3 @@ newtype DirAbsName   = DirAbsName   { unDirAbsName   :: FilePath }
 -- type Hashes = Map.Map FileRelName (Maybe (Digest MD5))
 newtype Hashes = Hashes { getHashes:: Map.Map FileRelName (Maybe (Digest MD5)) }
   deriving (Show, Eq)
-
-type DigestMD5 = Digest MD5
-
-instance Binary (Digest MD5) where
-  put = put . toBytes
-  get = maybe (fail "cannot decode to bytestring") pure . digestFromByteString =<< get
-
-$( derive makeBinary ''FileRelName )
-$( derive makeBinary ''Hashes )

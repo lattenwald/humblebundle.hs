@@ -20,6 +20,7 @@ executable HumbleBundle-hs
   other-modules:       HB.Session
                      , HB.Types
                      , HB.Utils
+                     , HB.Derive
                      , HB.Wreq
                      , Network.HTTP.Client.Utils
   -- other-extensions:
@@ -51,6 +52,7 @@ executable HumbleBundle-hs
                      , pipes-bytestring
                      , pipes-http
                      , text
+                     , time
                      , transformers
                      , vector
                      , wreq
