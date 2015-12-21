@@ -60,7 +60,6 @@ runHB opts = do
   hashes <- loadHashes hashStorage
   putStrLn $ "Total " ++ show (Map.size . getHashes $ hashes) ++ " hashes there"
 
-  m <- newManager tlsManagerSettings
   -- credentials
   bundles <- handle hbCatch . withSession' $ \sess -> do
     resp <- hbInit sess >>=
@@ -82,6 +81,7 @@ runHB opts = do
 
   -- execute downloads
   putStrLn "Downloads on it's way..."
+  m <- newManager tlsManagerSettings
   newHashes <- parallelInterleaved
              . map (executeDownload m hashes path (optVerbose opts)) $ dls
 
