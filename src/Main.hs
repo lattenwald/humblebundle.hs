@@ -38,7 +38,7 @@ options = MainOptions <$>
   strOption ( long "hashes"
              <> short 'h'
              <> value "hashes"
-             <> help "file with hashes" )
+             <> help "file with hashes (without suffix)" )
 
 main :: IO ()
 main = do

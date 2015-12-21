@@ -11,15 +11,17 @@ Now you have binary `HumbleBundle-hs` somewhere in our `$PATH` (in my case it is
 
 ### Using ###
 
-First create file *credentials*, with two lines: login and password.
+For some information on command line options you can runeffect
 
-Then create sqlite3 database for storing md5 hashes
+    HumbleBundle-hs --help
 
-    sqlite3 hashes.db < "CREATE TABLE hashes (path TEXT, md5 TEXT, PRIMARY KEY (path));"
-
-Finally, run something like
+To actually use it run something like
 
     HumbleBundle-hs -v -p Android -d ../cloud/HB +RTS -N8
+
+Follow prompts. It will ask you for credentials and possible for humblehuard code if the site will need it. After successful authentication cookies are stored for subsequent runs in file `cookies`.
+
+File hashes database is located at `hashes.bin` which is created after first successful run. If you run into problems, easiest solution is to remove it (and maybe `cookies` too) and re-run this tool.
 
 ### Options ###
 
@@ -32,4 +34,4 @@ Finally, run something like
       -v,--verbose             be verbose
       -p,--platform ARG        platform to download binaries for
       -d,--destination ARG     where to download binaries
-      -h,--hashes ARG          file with hashes
+      -h,--hashes ARG          file with hashes (without suffix)
