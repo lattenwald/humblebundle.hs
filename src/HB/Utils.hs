@@ -94,7 +94,11 @@ saveHashes :: Hashes -> FileRelName -> IO ()
 saveHashes h f = BL8.writeFile (unFileRelName f ++ ".bin") . Bin.encode $ h
 
 loadHashes :: FileRelName -> IO Hashes
-loadHashes f = BL8.readFile (unFileRelName f ++ ".bin") >>= return . Bin.decode
+loadHashes f = do
+  exists <- doesFileExist (unFileRelName f)
+  if exists
+     then BL8.readFile (unFileRelName f ++ ".bin") >>= return . Bin.decode
+     else pure $ Hashes Map.empty
 
 uniq :: Ord a => [a] -> [a]
 uniq = Set.toList . Set.fromList
