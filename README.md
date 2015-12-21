@@ -8,6 +8,8 @@ Two-Step Verification is not supported yet.
 
 ### Installation ###
 
+Build it with [Haskell stack](http://haskellstack.org).
+
 * checkout repository
 * `stack build --copy-bins`
 
