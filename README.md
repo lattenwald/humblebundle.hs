@@ -1,6 +1,10 @@
 # HumbleBundle downloader #
 
-I created this tool for downloading HumbleBundle games. Their native Android application is not that fast, and I decided I'd better download all APKs and store them in private cloud for easy access. This can also be used to download binaries for other platforms, though some functionality might be missing as I didn't test it for other binaries.
+I created this tool for downloading HumbleBundle games. Their native Android
+application is not that fast, and I decided I'd better download all APKs and
+store them in private cloud for easy access. This can also be used to download
+binaries for other platforms, though some functionality might be missing as I
+didn't test it for other binaries.
 
 ### Things that do not work yet
 
@@ -13,7 +17,8 @@ Build it with [Haskell stack](http://haskellstack.org).
 * checkout repository
 * `stack build --copy-bins`
 
-Now you have binary `HumbleBundle-hs` somewhere in our `$PATH` (in my case it is `$HOME/.local/bin/HumbleBundle-hs`)
+Now you have binary `HumbleBundle-hs` somewhere in our `$PATH` (in my case it is
+`$HOME/.local/bin/HumbleBundle-hs`)
 
 ### Using ###
 
@@ -25,9 +30,13 @@ To actually use it run something like
 
     HumbleBundle-hs -v -p Android -d ../cloud/HB +RTS -N8
 
-Follow prompts. It will ask you for credentials and possible for humblehuard code if the site will need it. After successful authentication cookies are stored for subsequent runs in file `cookies`.
+Follow prompts. It will ask you for credentials and possibly for humbleguard
+code if the site will need it. After successful authentication cookies are
+stored for subsequent runs in file `cookies`.
 
-File hashes database is located at `hashes.bin` which is created after first successful run. If you run into problems, easiest solution is to remove it (and maybe `cookies` too) and re-run this tool.
+File hashes database is located at `hashes.bin` which is created after first
+successful run. If you run into problems, easiest solution is to remove it (and
+maybe `cookies` too) and re-run this tool.
 
 ### Options ###
 
