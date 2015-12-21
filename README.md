@@ -2,6 +2,10 @@
 
 I created this tool for downloading HumbleBundle games. Their native Android application is not that fast, and I decided I'd better download all APKs and store them in private cloud for easy access. This can also be used to download binaries for other platforms, though some functionality might be missing as I didn't test it for other binaries.
 
+### Things that do not work yet
+
+Two-Step Verification is not supported yet.
+
 ### Installation ###
 
 * checkout repository
