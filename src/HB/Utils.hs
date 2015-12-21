@@ -2,22 +2,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module HB.Utils where
 
-import           Control.Lens
 import           Control.Monad
 import           Crypto.Hash
-import           Data.Aeson
-import           Data.Aeson.Lens
 import qualified Data.Binary as Bin
-import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as BL8
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import           Data.Text.Encoding (encodeUtf8)
-import           Data.Text.Lens
 import           HB.Derive ()
 import           HB.Types
-import           Network.HTTP.Client.Utils
 import           Pipes
 import qualified Pipes.ByteString as PB
 import           Pipes.HTTP
@@ -25,12 +18,6 @@ import qualified Pipes.Prelude as P
 import           System.Directory
 import           System.FilePath
 import           System.IO
-
-fetch :: Manager -> CookieJar -> String -> IO BL8.ByteString
-fetch m jar key = do
-  req <- parseUrl ("https://www.humblebundle.com/api/v1/order/" ++ key)
-  let req' = req { cookieJar = Just jar }
-  responseBody <$> httpLbs req' m
 
 download m url fname = do
   req <- parseUrl url
@@ -100,50 +87,8 @@ isJust _ = False
 fromJust (Just a) = a
 fromJust _ = error "Not Just"
 
-parseBundle :: BL8.ByteString -> [DL]
-parseBundle str = do
-  let Just json = decode str :: Maybe Value
-  bundle_name <- json ^.. key "product" . key "human_name" . _String . from packed
-
-  sp <- json ^.. key "subproducts" . values
-  human_name <- sp ^.. key "human_name" . _String . from packed
-
-  dl <- sp ^.. key "downloads" . values
-  machine_name <- dl ^.. key "machine_name" . _String . from packed
-  platform <- dl ^.. key "platform" . _Platform
-
-  dl_struct <- dl ^.. key "download_struct" . values
-  url <- dl_struct ^.. key "url" . key "web" . _String . from packed
-  let dl_type = dl_struct ^? key "name" . _DLType
-      human_size = dl_struct ^? key "human_size" . _String . from packed
-      file_size = dl_struct ^? key "file_size" . _Integral
-      md5 = dl_struct ^? key "md5" . _Digest
-
-  return $ DL human_name machine_name bundle_name platform dl_type url human_size file_size md5
-
 filterPlatform All = id
 filterPlatform (Platform' pl) = filter ((pl ==) . platform)
-
-strToDigest :: HashAlgorithm a => B8.ByteString -> Maybe (Digest a)
-strToDigest = digestFromByteString . fst . B16.decode
-
-_Digest :: HashAlgorithm a => Prism' Value (Digest a)
-_Digest = prism' undefined strToDigest'
-  where
-    strToDigest' (String s) = strToDigest . encodeUtf8 $ s
-    strToDigest' _ = Nothing
-
-_Platform :: Prism' Value Platform
-_Platform = prism' undefined strToPlatform
-  where
-    strToPlatform "windows" = Just Windows
-    strToPlatform "mac"     = Just Mac
-    strToPlatform "linux"   = Just Linux
-    strToPlatform "android" = Just Android
-    strToPlatform "audio"   = Just Audio
-    strToPlatform "ebook"   = Just Ebook
-    strToPlatform "asmjs"   = Just Asmjs
-    strToPlatform _         = Nothing
 
 saveHashes :: Hashes -> FileRelName -> IO ()
 saveHashes h f = BL8.writeFile (unFileRelName f ++ ".bin") . Bin.encode $ h

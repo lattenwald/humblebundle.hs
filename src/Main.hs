@@ -1,10 +1,12 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 import           Control.Concurrent.ParallelIO
 import           Control.Exception
 import           Control.Lens
 import qualified Data.Map as Map
 import           Network.HTTP.Client (newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
-import           Network.Wreq hiding (options, header)
+import           Network.Wreq hiding (options, header, get)
+import           Network.Wreq.Session hiding (options)
 import           Options.Applicative
 import           System.IO
 
@@ -58,26 +60,30 @@ runHB opts = do
   hashes <- loadHashes hashStorage
   putStrLn $ "Total " ++ show (Map.size . getHashes $ hashes) ++ " hashes there"
 
+  m <- newManager tlsManagerSettings
   -- credentials
-  (cookies, keys) <- handle hbCatch . withSession' $ \sess -> do
+  bundles <- handle hbCatch . withSession' $ \sess -> do
     resp <- hbInit sess >>=
             hbAuth sess
     let cookies = resp ^. responseCookieJar
     saveCookies cookies
     keys <- hbKeys sess
-    pure (cookies, keys)
 
-  m <- newManager tlsManagerSettings
+    putStrLn "Fetching bundles info..."
+    let urls = map ("https://www.humblebundle.com/api/v1/order/" ++) keys
+    bundles :: [DL] <- fmap (uniq . concat)
+                         . parallelInterleaved
+                         . map (\u -> view responseBody <$> (asJSON =<< get sess u))
+                         $ urls
+    pure bundles
 
   -- fetch all bundles data and extract download information
-  putStrLn "Fetching keys..."
-  bundles <- parallelInterleaved . map (fetch m cookies) $ keys
-  let dls = filterPlatform pl . uniq . concatMap parseBundle $ bundles
+  let dls = filterPlatform pl bundles
 
   -- execute downloads
   putStrLn "Downloads on it's way..."
   newHashes <- parallelInterleaved
-               . map (executeDownload m hashes path (optVerbose opts)) $ dls
+             . map (executeDownload m hashes path (optVerbose opts)) $ dls
 
   saveHashes (Hashes $ Map.fromList newHashes) hashStorage
 

@@ -1,29 +1,55 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 module HB.Types where
 
-import           Control.Lens
+import           Control.Applicative
+import           Control.Monad
 import           Crypto.Hash
 import           Data.Aeson
+import qualified Data.ByteString.Base16 as B16
+import qualified Data.HashMap.Strict as HashMap
+import           Data.Text.Encoding (encodeUtf8)
+
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
+import qualified Debug.Trace as D
+
 data Platform = Windows | Mac | Linux | Android | Audio | Ebook | Asmjs
      deriving (Show, Read, Eq)
+instance FromJSON Platform where
+  parseJSON = withText "platform" $ \t ->
+    case t of
+      "windows" -> pure Windows
+      "mac"     -> pure Mac
+      "linux"   -> pure Linux
+      "android" -> pure Android
+      "audio"   -> pure Audio
+      "ebook"   -> pure Ebook
+      "asmjs"   -> pure Asmjs
+      _         -> fail "unknown platform"
 
 data DLType = DLTDownload | DLTTablet | DLTPatch | DLTIntelOnly
   deriving (Show, Eq)
+instance FromJSON DLType where
+  parseJSON = withText "type" $ \t ->
+    case t of
+      "Intel Only"                           -> pure DLTIntelOnly
+      "Patch"                                -> pure DLTPatch
+      s | "Download Tablet" `T.isPrefixOf` s -> pure DLTTablet
+      "Download"                             -> pure DLTDownload
+      _                                      -> fail "unknown download type"
 
-_DLType :: Prism' Value DLType
-_DLType = prism' undefined strToDLType
-  where
-    strToDLType (String "Intel Only")      = Just DLTIntelOnly
-    strToDLType (String "Patch")           = Just DLTPatch
-    strToDLType (String s)
-      | "Download Tablet" `T.isPrefixOf` s = Just DLTTablet
-    strToDLType (String "Download")        = Just DLTDownload
-    strToDLType _                          = Nothing
+strToDigest = undefined
+
+instance FromJSON (Digest MD5) where
+  parseJSON = withText "md5 digest" $ \t ->
+    case digestFromByteString . fst . B16.decode . encodeUtf8 $ t of
+      Just d -> pure d
+      Nothing -> fail "not an md5 digest"
 
 data DL = DL { hname       :: String
              , mname       :: String
@@ -37,6 +63,20 @@ data DL = DL { hname       :: String
              } deriving (Show, Eq)
 instance Ord DL where
   dl1 `compare` dl2 = (fsize dl1) `compare` (fsize dl2)
+instance FromJSON [DL] where
+  parseJSON = withObject "bundle" $ \o -> do
+    bundle_name <- o .: "product" >>= (.: "human_name")
+    sps         <- o .: "subproducts"
+    forM (filter ("platform" `HashMap.member`) sps) $ \sp -> D.traceShowId <$> do
+      hname    <- sp .: "human_name"
+      mname    <- sp .: "machine_name"
+      url      <- D.traceShowId <$> (sp .: "url") <|> (sp .: "url" >>= (.: "web"))
+      hsize    <- sp .:? "human_size"
+      fsize    <- sp .:? "file_size"
+      md5      <- sp .:? "md5"
+      platform <- sp .: "platform"
+      dltype   <- sp .:? "type"
+      pure DL {..}
 
 data Platform' = Platform' Platform | All
   deriving (Show, Eq)
@@ -56,6 +96,5 @@ newtype DirRelName   = DirRelName   { unDirRelName   :: FilePath }
 newtype DirAbsName   = DirAbsName   { unDirAbsName   :: FilePath }
   deriving (Show, Eq, Ord)
 
--- type Hashes = Map.Map FileRelName (Maybe (Digest MD5))
 newtype Hashes = Hashes { getHashes:: Map.Map FileRelName (Maybe (Digest MD5)) }
   deriving (Show, Eq)
