@@ -91,14 +91,21 @@ filterPlatform All = id
 filterPlatform (Platform' pl) = filter ((pl ==) . platform)
 
 saveHashes :: Hashes -> FileRelName -> IO ()
-saveHashes h f = BL8.writeFile (unFileRelName f ++ ".bin") . Bin.encode $ h
+saveHashes h f = do
+  let f' = unFileRelName f ++ ".bin"
+  putStrLn $ "saving to " ++ f'
+  BL8.writeFile f' . Bin.encode $ h
 
 loadHashes :: FileRelName -> IO Hashes
 loadHashes f = do
-  exists <- doesFileExist (unFileRelName f)
+  let f' = unFileRelName f ++ ".bin"
+  putStrLn $ "loading from " ++ f'
+  exists <- doesFileExist f'
   if exists
      then BL8.readFile (unFileRelName f ++ ".bin") >>= return . Bin.decode
-     else pure $ Hashes Map.empty
+     else do
+          putStrLn "no such file"
+          pure $ Hashes Map.empty
 
 uniq :: Ord a => [a] -> [a]
 uniq = Set.toList . Set.fromList
