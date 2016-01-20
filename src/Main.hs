@@ -85,7 +85,7 @@ runHB opts = do
   newHashes <- parallelInterleaved
              . map (executeDownload m hashes path (optVerbose opts)) $ dls
 
-  saveHashes (Hashes $ Map.fromList newHashes) hashStorage
+  saveHashes (Hashes $ Map.union (getHashes hashes) . Map.fromList $ newHashes) hashStorage
 
   stopGlobalPool
   putStrLn "All done!"
