@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 import           Control.Concurrent.ParallelIO
+import           Control.Monad
 import           Control.Exception
 import           Control.Lens
 import qualified Data.Map as Map
@@ -14,6 +15,8 @@ import           HB.Session
 import           HB.Types
 import           HB.Utils
 import           HB.Wreq
+
+import qualified Debug.Trace as D
 
 data MainOptions = MainOptions { optVerbose :: Bool
                                , optPlatform :: String
@@ -58,6 +61,8 @@ runHB opts = do
       hashStorage = FileRelName $ optHashStorage opts
   putStrLn $ "Getting hashes from " ++ show hashStorage ++ "..."
   hashes <- loadHashes hashStorage
+  -- forM_ (map unFileRelName $ Map.keys . getHashes $ hashes) putStrLn
+
   putStrLn $ "Total " ++ show (Map.size . getHashes $ hashes) ++ " hashes there"
 
   -- credentials
@@ -70,10 +75,13 @@ runHB opts = do
 
     putStrLn "Fetching bundles info..."
     let urls = map ("https://www.humblebundle.com/api/v1/order/" ++) keys
-    bundles :: [DL] <- fmap (uniq . concat)
+    -- mapM_ putStrLn urls
+    bundles :: [DL] <-   fmap (uniq . concat)
                          . parallelInterleaved
+                         -- . sequence
                          . map (\u -> view responseBody <$> (asJSON =<< get sess u))
                          $ urls
+    -- print bundles
     pure bundles
 
   -- fetch all bundles data and extract download information
@@ -84,6 +92,7 @@ runHB opts = do
   m <- newManager tlsManagerSettings
   newHashes <- parallelInterleaved
              . map (executeDownload m hashes path (optVerbose opts)) $ dls
+  -- forM_ (map (unFileRelName . fst) $ newHashes) putStrLn
 
   saveHashes (Hashes $ Map.union (getHashes hashes) . Map.fromList $ newHashes) hashStorage
 

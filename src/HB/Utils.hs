@@ -1,20 +1,20 @@
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module HB.Utils where
 
 import           Control.Monad
 import           Crypto.Hash
-import qualified Data.Binary as Bin
-import qualified Data.ByteString.Char8 as B8
+import qualified Data.Binary                as Bin
+import qualified Data.ByteString.Char8      as B8
 import qualified Data.ByteString.Lazy.Char8 as BL8
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-import           HB.Derive ()
+import qualified Data.Map                   as Map
+import qualified Data.Set                   as Set
+import           HB.Derive                  ()
 import           HB.Types
 import           Pipes
-import qualified Pipes.ByteString as PB
+import qualified Pipes.ByteString           as PB
 import           Pipes.HTTP
-import qualified Pipes.Prelude as P
+import qualified Pipes.Prelude              as P
 import           System.Directory
 import           System.FilePath
 import           System.IO
@@ -32,7 +32,10 @@ executeDownload m hashes dir verbose dl@DL{..} = do
   let hname'   = map (\c -> if c `elem` (":*/<>?|" :: String) then '_' else c) hname
       reldir   = DirRelName $ concat [show platform, "/"
                                      , hname'
-                                     , if dltype == Just DLTTablet then "/tablet" else ""
+                                     , case dltype of
+                                         Just (DLT "") -> ""
+                                         Just (DLT s) -> "/" ++ s
+                                         _              -> ""
                                      ]
       filedir  = DirAbsName $ concat [unDirAbsName dir, "/", unDirRelName reldir]
       fname    = FileBaseName $ takeFileName . B8.unpack . path $ req

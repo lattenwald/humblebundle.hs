@@ -95,6 +95,7 @@ bsSearch term str = findConsecutive indices
 
 hbCatch :: Client.HttpException -> IO a
 hbCatch (Client.StatusCodeException status hdr _) = do
+  -- print $ "hbCatch: " ++ show status
   let err = show (status ^. statusCode) ++ " " ++ (status ^. statusMessage . unpackedChars)
       maybeErrorText = fmap snd $ listToMaybe . filter (\(a, _) -> a == "X-Response-Body-Start") $ hdr
       jsonError = preview (key "errors") =<< maybeErrorText
