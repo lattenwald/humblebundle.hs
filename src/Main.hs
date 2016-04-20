@@ -78,7 +78,6 @@ runHB opts = do
     -- mapM_ putStrLn urls
     bundles :: [DL] <-   fmap (uniq . concat)
                          . parallelInterleaved
-                         -- . sequence
                          . map (\u -> view responseBody <$> (asJSON =<< get sess u))
                          $ urls
     -- print bundles

@@ -63,7 +63,8 @@ fileOK hashes dir relname verbose DL{..} = do
             Nothing -> fileHash fullname
   let md5_ok = (==) <$> md5  <*> md5'
   when (verbose && isJust md5_ok && not (fromJust md5_ok) && isJust md5') $
-        putStrLn $ bundle_name ++ ", " ++ hname ++ " (" ++ mname ++ ")" ++ " md5: got "  ++ show md5'  ++ ", expected " ++ show md5
+    putStrLn $ bundle_name ++ ", " ++ hname ++ "(" ++ mname ++ ") md5 hash mismatch"
+        -- putStrLn $ bundle_name ++ ", " ++ hname ++ " (" ++ mname ++ ")" ++ " md5: got "  ++ show md5'  ++ ", expected " ++ show md5
   return $ isJust md5_ok && fromJust md5_ok
 
 fileHash :: HashAlgorithm a => FileAbsName -> IO (Maybe (Digest a))
