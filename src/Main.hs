@@ -1,6 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 import           Control.Concurrent.ParallelIO
-import           Control.Monad
 import           Control.Exception
 import           Control.Lens
 import qualified Data.Map as Map
@@ -15,8 +14,6 @@ import           HB.Session
 import           HB.Types
 import           HB.Utils
 import           HB.Wreq
-
-import qualified Debug.Trace as D
 
 data MainOptions = MainOptions { optVerbose :: Bool
                                , optPlatform :: String

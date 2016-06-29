@@ -17,8 +17,6 @@ import           Data.Text.Encoding (encodeUtf8)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 
-import qualified Debug.Trace as D
-
 data Platform = Windows | Mac | Linux | Android | Audio | Ebook | Asmjs
      deriving (Show, Read, Eq)
 instance FromJSON Platform where
@@ -52,8 +50,6 @@ instance FromJSON DLType where
       "Download Extended"        -> pure $ DLT "extended"
       "Download (HD)"            -> pure $ DLT "hd"
       "Download (Regular)"       -> pure $ DLT ""
-      "Download (HD)"            -> pure $ DLT "hd"
-      "Download (Regular)"       -> pure $ DLT ""
       "Download Cogs"            -> pure $ DLT ""
       "Cogs GO (Netbooks)"       -> pure $ DLT "netbook"
       "New"                      -> pure $ DLT "new"
@@ -69,7 +65,6 @@ instance FromJSON DLType where
       "Download DLC"             -> pure $ DLT "dlc"
       "Older Version"            -> pure $ DLT "old"
       "Updated Version"          -> pure $ DLT ""
-      "Mobile"                   -> pure $ DLT "mobile"
 
       "atitc"                 -> pure $ DLT "ATITC"
       "etc"                   -> pure $ DLT "ETC"
@@ -88,6 +83,8 @@ instance FromJSON DLType where
       "ETC2"                  -> pure $ DLT "ETC2"
       "PVRTC1"                -> pure $ DLT "PVRTC1"
       "PVRTC2"                -> pure $ DLT "PVRTC2"
+      "OBB"                   -> pure $ DLT "obb"
+      "APK"                   -> pure $ DLT "apk"
 
       "MP3"  -> pure $ DLTAudio "mp3"
       "FLAC" -> pure $ DLTAudio "flac"
@@ -155,9 +152,6 @@ instance FromJSON DLType where
       "Installer"      -> pure $ DLT ""
 
       other -> fail $ "Unknown download type: " ++ show other
-      -- other -> do
-      --   guard $ D.traceShow other True
-      --   pure $ DLTDebug $ T.unpack other
 
 strToDigest = undefined
 
