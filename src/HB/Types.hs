@@ -85,6 +85,8 @@ instance FromJSON DLType where
       "PVRTC2"                -> pure $ DLT "PVRTC2"
       "OBB"                   -> pure $ DLT "obb"
       "APK"                   -> pure $ DLT "apk"
+      "ARMv7 APK"             -> pure $ DLT "arm7"
+      "x86 APK"               -> pure $ DLT "x86"
 
       "MP3"  -> pure $ DLTAudio "mp3"
       "FLAC" -> pure $ DLTAudio "flac"
